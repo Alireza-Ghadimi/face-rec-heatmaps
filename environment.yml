@@ -1,0 +1,24 @@
+name: facerec
+channels:
+  - pytorch
+  - conda-forge
+  - defaults
+dependencies:
+  - python=3.10
+  - pytorch
+  - torchvision
+  - numpy
+  - opencv
+  - pillow
+  - tqdm
+  - pyyaml
+  - scikit-learn
+  - tensorboard
+  - pytest
+  - pip
+  - pip:
+      - timm>=0.9.12
+      - mediapipe>=0.10.14
+      - dlib>=19.24.4
+      - datasets>=2.16.0
+      - huggingface-hub>=0.20.0
