@@ -1,0 +1,31 @@
+img_size: 112
+use_heatmaps: true
+add_mask_channel: true
+cache_heatmaps: false
+cache_landmarks: false
+extractor: mediapipe  # or dlib
+backbone: resnet50
+data_root: data_lfw
+batch_size: 32
+val_batch_size: 32
+epochs: 20
+num_workers: 0
+optimizer:
+  name: adamw
+  lr: 1.0e-4
+  weight_decay: 0.05
+scheduler:
+  name: cosine
+  warmup_steps: 500
+arcface:
+  margin: 0.5
+  scale: 64.0
+cosface:
+  margin: 0.35
+  scale: 64.0
+use_cosface: false
+seed: 42
+deterministic: false
+log_dir: runs
+save_dir: checkpoints
+use_tensorboard: false
