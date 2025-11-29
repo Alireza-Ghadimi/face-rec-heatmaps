@@ -60,7 +60,7 @@ python scripts/build_vggface2.py --dataset anhnct/vggface2 --split train --out_d
 ```
 Then train:
 ```bash
-python -m src.train --data_root data_vggface2 --use_heatmaps true --add_mask_channel true --extractor mediapipe
+python -m src.train --data_root data_vggface2 --use_heatmaps true --add_mask_channel true --extractor mediapipe --device cuda
 ```
 
 ## Tests

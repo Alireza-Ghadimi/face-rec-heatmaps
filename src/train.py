@@ -154,6 +154,7 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Face recognition training")
     parser.add_argument("--config", type=str, default="config.yaml", help="Path to config YAML")
     parser.add_argument("--data_root", type=str, required=True, help="ImageFolder root")
+    parser.add_argument("--device", type=str, choices=["cpu", "cuda", "mps"], default=None, help="Force device")
     parser.add_argument("--use_heatmaps", type=str, default=None, help="true|false")
     parser.add_argument("--add_mask_channel", type=str, default=None, help="true|false")
     parser.add_argument("--extractor", type=str, choices=["mediapipe", "dlib"], default=None)
@@ -169,6 +170,8 @@ def merge_config(cfg: Dict[str, Any], args: argparse.Namespace) -> Dict[str, Any
         val = getattr(args, key, None)
         if val is not None:
             cfg[key] = val
+    if args.device is not None:
+        cfg["device"] = args.device
     for key in ["use_heatmaps", "add_mask_channel", "cache_heatmaps", "use_cosface"]:
         val = getattr(args, key, None)
         if val is not None:
@@ -180,10 +183,13 @@ def main() -> None:
     args = parse_args()
     cfg = merge_config(load_config(args.config), args)
     set_seed(cfg.get("seed", 42), deterministic=cfg.get("deterministic", False))
-    if torch.backends.mps.is_available():
-        device = torch.device("mps")
+    device_arg = cfg.get("device")
+    if device_arg:
+        device = torch.device(device_arg)
     elif torch.cuda.is_available():
         device = torch.device("cuda")
+    elif torch.backends.mps.is_available():
+        device = torch.device("mps")
     else:
         device = torch.device("cpu")
 
