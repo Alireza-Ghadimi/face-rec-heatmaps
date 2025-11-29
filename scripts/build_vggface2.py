@@ -51,6 +51,12 @@ LANDMARKS_MP: Sequence[Tuple[str, int]] = [
     ("right_eyebrow_outer", 296),
 ]
 MP_LANDMARK_COUNT = 468
+IMPORTANT_LANDMARKS = [
+    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378,
+    400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21,
+    54, 103, 67, 109, 70, 63, 105, 66, 107, 336, 296, 334, 293, 300, 33, 160,
+    158, 133, 153, 144, 163, 7, 362, 385, 387, 263, 373, 380, 390, 249, 78, 308,
+]
 
 
 def save_image(img, path: Path) -> None:
@@ -94,6 +100,7 @@ def build_vggface2(
     sample_prob: float = 1.0,
     seed: int = 0,
     csv_path: Optional[Path] = None,
+    npy_path: Optional[Path] = None,
 ) -> None:
     rng = random.Random(seed)
     ds = load_dataset(dataset_name, split=split, streaming=streaming)
@@ -106,16 +113,17 @@ def build_vggface2(
     else:
         iterator = enumerate(ds) if max_samples is None else enumerate(islice(ds, max_samples))
 
+    rows = []
     writer = None
     csv_file = None
     if csv_path is not None:
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         csv_file = open(csv_path, "w", newline="", encoding="utf-8")
         header = ["idx", "class_id", "height", "width"]
-        for i in range(MP_LANDMARK_COUNT):
-            header.extend([f"lm_{i}_x", f"lm_{i}_y"])
-        for i in range(MP_LANDMARK_COUNT):
-            header.extend([f"lm_{i}_x_norm", f"lm_{i}_y_norm"])
+        for idx in IMPORTANT_LANDMARKS:
+            header.extend([f"lm_{idx}_x", f"lm_{idx}_y"])
+        for idx in IMPORTANT_LANDMARKS:
+            header.extend([f"lm_{idx}_x_norm", f"lm_{idx}_y_norm"])
         header.extend(["yaw_deg", "pitch_deg", "roll_deg"])
         writer = csv.writer(csv_file)
         writer.writerow(header)
@@ -131,26 +139,31 @@ def build_vggface2(
         counts[label] = counts.get(label, 0) + 1
         img = sample["image"]
         save_image(img, out_dir / str(label) / f"{counts[label]:06d}.jpg")
-        if writer is not None:
+        if writer is not None or npy_path is not None:
             h, w = img.size[1], img.size[0]  # PIL size is (w, h)
             pts, _ = extract_landmarks_mediapipe(img)
             row = [i, label, h, w]
-            row.extend(pts.flatten().tolist())
-            # Normalize: subtract nose tip (lm_1), divide by (lm_10 - lm_152) per axis
+            pts_sel = pts[IMPORTANT_LANDMARKS]
+            row.extend(pts_sel.flatten().tolist())
             nose = pts[1] if len(pts) > 1 else np.array([0.0, 0.0], dtype=np.float32)
             top = pts[10] if len(pts) > 10 else np.array([0.0, 0.0], dtype=np.float32)
             chin = pts[152] if len(pts) > 152 else np.array([1.0, 1.0], dtype=np.float32)
             scale = top - chin
-            # avoid divide-by-zero
             scale[scale == 0] = np.finfo(np.float32).eps
-            pts_norm = (pts - nose) / scale
+            pts_norm = (pts_sel - nose) / scale
             row.extend(pts_norm.flatten().tolist())
             yaw, pitch, roll = estimate_head_pose(pts, (h, w), mode="mediapipe")
             row.extend([yaw, pitch, roll])
-            writer.writerow(row)
+            rows.append(row)
+            # Only write the first row to CSV for header reference
+            if writer is not None and len(rows) == 1:
+                writer.writerow(row)
 
     if csv_file is not None:
         csv_file.close()
+    if npy_path is not None and rows:
+        npy_path.parent.mkdir(parents=True, exist_ok=True)
+        np.save(npy_path, np.asarray(rows, dtype=object))
 
     print(f"Wrote images to {out_dir} with {len(counts)} identities and {sum(counts.values())} files.")
 
@@ -166,6 +179,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--sample_prob", type=float, default=1.0, help="Subsample probability when streaming")
     parser.add_argument("--seed", type=int, default=0, help="RNG seed for subsampling")
     parser.add_argument("--csv_path", type=str, default=None, help="Optional CSV path for landmark export")
+    parser.add_argument("--npy_path", type=str, default=None, help="Optional NPY path to store all rows")
     return parser.parse_args()
 
 
@@ -182,6 +196,7 @@ def main() -> None:
         sample_prob=args.sample_prob,
         seed=args.seed,
         csv_path=Path(args.csv_path) if args.csv_path else None,
+        npy_path=Path(args.npy_path) if args.npy_path else None,
     )
 
 
