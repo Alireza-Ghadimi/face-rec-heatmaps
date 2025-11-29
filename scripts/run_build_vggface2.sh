@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Activate your environment (adjust path/name as needed)
-source ~/.venv/bin/activate  # or: module load python && source ~/project/venv/bin/activate
+source ~/projects/aip-jelder/ghadimi/face-rec-heatmaps/.venv/bin/activate  # or: module load python && source ~/project/venv/bin/activate
 
 cd "$SLURM_SUBMIT_DIR"
 
