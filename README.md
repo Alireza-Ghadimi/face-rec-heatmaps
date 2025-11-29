@@ -54,9 +54,9 @@ Key flags: `--img_size 112`, `--cache_heatmaps`, `--cache_landmarks`, `--use_cos
 ## Using VGGFace2 from Hugging Face
 Build an ImageFolder from Hugging Face (requires `datasets` and optional HF auth). You can limit samples/classes or stream a subset to avoid downloading the full dataset:
 ```bash
-python scripts/build_vggface2.py --dataset anhnct/vggface2 --split train --out_dir data_vggface2 --limit_classes 500 --max_samples 20000
+python scripts/build_vggface2.py --dataset logasja/vggface2 --split train --out_dir data_vggface2 --limit_classes 500 --max_samples 20000
 # or stream + subsample
-python scripts/build_vggface2.py --dataset anhnct/vggface2 --split train --out_dir data_vggface2 --streaming --sample_prob 0.2 --max_samples 5000
+python scripts/build_vggface2.py --dataset logasja/vggface2 --split train --out_dir data_vggface2 --streaming --sample_prob 0.2 --max_samples 50
 ```
 Then train:
 ```bash

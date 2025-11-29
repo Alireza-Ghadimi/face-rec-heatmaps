@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Activate your environment (adjust path/name as needed)
-source ~/ENV/bin/activate  # or: module load python && source ~/project/venv/bin/activate
+source ~/.venv/bin/activate  # or: module load python && source ~/project/venv/bin/activate
 
 cd "$SLURM_SUBMIT_DIR"
 

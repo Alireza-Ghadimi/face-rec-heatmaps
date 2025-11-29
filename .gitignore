@@ -3,3 +3,8 @@
 .\checkpoints
 shape_predictor_68_face_landmarks.dat
 *.pt
+.\data*
+*.jpg
+*.pyc
+data*
+src/__pycache__/*
