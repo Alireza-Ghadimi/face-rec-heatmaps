@@ -24,8 +24,7 @@ python scripts/build_vggface2.py \
   --dataset logasja/vggface2 \
   --split train \
   --out_dir data_vggface2 \
-  --streaming \
-  --sample_prob 0.9 \
-  --max_samples 300000 \
+  --chunk_size 1000 \
+  --chunk_dir data_vggface2/chunks \
   --csv_path data_vggface2_first_row.csv \
-  --npy_path data_vggface2_landmarks.npy
+  --save_images false

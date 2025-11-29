@@ -104,6 +104,9 @@ def build_vggface2(
     seed: int = 0,
     csv_path: Optional[Path] = None,
     npy_path: Optional[Path] = None,
+    chunk_size: int = 1000,
+    chunk_dir: Optional[Path] = None,
+    save_images: bool = True,
 ) -> None:
     rng = random.Random(seed)
     ds = load_dataset(dataset_name, split=split, streaming=streaming)
@@ -119,6 +122,11 @@ def build_vggface2(
     rows = []
     writer = None
     csv_file = None
+    chunk_dir = chunk_dir or (out_dir / "chunks")
+    chunk_dir.mkdir(parents=True, exist_ok=True)
+    current_chunk = 0
+    current_chunk_file = chunk_dir / f"chunk_{current_chunk:05d}.npy"
+    skip_chunk = current_chunk_file.exists()
     if csv_path is not None:
         csv_path.parent.mkdir(parents=True, exist_ok=True)
         csv_file = open(csv_path, "w", newline="", encoding="utf-8")
@@ -134,6 +142,14 @@ def build_vggface2(
     for i, sample in tqdm(iterator, total=total, desc=f"Writing {split}"):
         if sample_prob < 1.0 and rng.random() > sample_prob:
             continue
+        chunk_idx = i // chunk_size
+        if chunk_idx != current_chunk:
+            if rows and not skip_chunk:
+                np.save(current_chunk_file, np.asarray(rows, dtype=object))
+            rows = []
+            current_chunk = chunk_idx
+            current_chunk_file = chunk_dir / f"chunk_{current_chunk:05d}.npy"
+            skip_chunk = current_chunk_file.exists()
         label = sample.get("label") or sample.get("identity") or sample.get("class_id")
         if label is None:
             raise ValueError("Sample missing 'label'/'identity' field")
@@ -141,7 +157,10 @@ def build_vggface2(
             continue
         counts[label] = counts.get(label, 0) + 1
         img = sample["image"]
-        save_image(img, out_dir / str(label) / f"{counts[label]:06d}.jpg")
+        if skip_chunk:
+            continue
+        if save_images:
+            save_image(img, out_dir / str(label) / f"{counts[label]:06d}.jpg")
         if writer is not None or npy_path is not None:
             h, w = img.size[1], img.size[0]  # PIL size is (w, h)
             pts, _ = extract_landmarks_mediapipe(img)
@@ -158,7 +177,6 @@ def build_vggface2(
             yaw, pitch, roll = estimate_head_pose(pts, (h, w), mode="mediapipe")
             row.extend([yaw, pitch, roll])
             rows.append(row)
-            # Only write the first row to CSV for header reference
             if writer is not None and len(rows) == 1:
                 writer.writerow(row)
 
@@ -169,6 +187,8 @@ def build_vggface2(
             _MP_MESH.close()
         except Exception:
             pass
+    if rows and not skip_chunk:
+        np.save(current_chunk_file, np.asarray(rows, dtype=object))
     if npy_path is not None and rows:
         npy_path.parent.mkdir(parents=True, exist_ok=True)
         np.save(npy_path, np.asarray(rows, dtype=object))
@@ -188,6 +208,9 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--seed", type=int, default=0, help="RNG seed for subsampling")
     parser.add_argument("--csv_path", type=str, default=None, help="Optional CSV path for landmark export")
     parser.add_argument("--npy_path", type=str, default=None, help="Optional NPY path to store all rows")
+    parser.add_argument("--chunk_size", type=int, default=1000, help="Rows per chunk npy")
+    parser.add_argument("--chunk_dir", type=str, default=None, help="Directory to store chunk npys")
+    parser.add_argument("--save_images", type=str, default="true", help="Save extracted JPEGs (true/false)")
     return parser.parse_args()
 
 
@@ -205,6 +228,9 @@ def main() -> None:
         seed=args.seed,
         csv_path=Path(args.csv_path) if args.csv_path else None,
         npy_path=Path(args.npy_path) if args.npy_path else None,
+        chunk_size=args.chunk_size,
+        chunk_dir=Path(args.chunk_dir) if args.chunk_dir else None,
+        save_images=args.save_images.lower() in ("1", "true", "yes", "y"),
     )
 
 
