@@ -20,7 +20,7 @@ cd "$SLURM_SUBMIT_DIR"
 #   --sample_prob 0.2 \
 #   --max_samples 5000
 
-python scripts/build_vggface2.py \                     
+python scripts/build_vggface2.py \
   --dataset logasja/vggface2 \
   --split train \
   --out_dir data_vggface2 \
