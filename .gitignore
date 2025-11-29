@@ -8,3 +8,4 @@ shape_predictor_68_face_landmarks.dat
 *.pyc
 data*
 src/__pycache__/*
+slurm*.out

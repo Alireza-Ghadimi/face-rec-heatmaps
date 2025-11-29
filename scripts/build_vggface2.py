@@ -23,6 +23,7 @@ try:
 except Exception:  # pragma: no cover
     mp = None
 
+_MP_MESH = None
 ROOT = Path(__file__).resolve().parents[1]
 if str(ROOT) not in sys.path:
     sys.path.insert(0, str(ROOT))
@@ -70,15 +71,17 @@ def save_image(img, path: Path) -> None:
 
 def extract_landmarks_mediapipe(image: Image.Image) -> Tuple[np.ndarray, bool]:
     """Return (points, ok) where points shape (468,2) in pixel coords."""
+    global _MP_MESH
     if mp is None:
         return np.full((MP_LANDMARK_COUNT, 2), -1.0, dtype=np.float32), False
-    mesh = mp.solutions.face_mesh.FaceMesh(
-        static_image_mode=True,
-        refine_landmarks=True,
-        max_num_faces=1,
-    )
+    if _MP_MESH is None:
+        _MP_MESH = mp.solutions.face_mesh.FaceMesh(
+            static_image_mode=True,
+            refine_landmarks=True,
+            max_num_faces=1,
+        )
     rgb = np.array(image)
-    result = mesh.process(rgb)
+    result = _MP_MESH.process(rgb)
     if not result.multi_face_landmarks:
         return np.full((MP_LANDMARK_COUNT, 2), -1.0, dtype=np.float32), False
     h, w = rgb.shape[:2]
@@ -161,6 +164,11 @@ def build_vggface2(
 
     if csv_file is not None:
         csv_file.close()
+    if _MP_MESH is not None:
+        try:
+            _MP_MESH.close()
+        except Exception:
+            pass
     if npy_path is not None and rows:
         npy_path.parent.mkdir(parents=True, exist_ok=True)
         np.save(npy_path, np.asarray(rows, dtype=object))
