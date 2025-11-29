@@ -26,6 +26,6 @@ python scripts/build_vggface2.py \
   --out_dir data_vggface2 \
   --streaming \
   --sample_prob 0.9 \
-  --max_samples 50 \
+  --max_samples 300000 \
   --csv_path data_vggface2_first_row.csv \
   --npy_path data_vggface2_landmarks.npy
