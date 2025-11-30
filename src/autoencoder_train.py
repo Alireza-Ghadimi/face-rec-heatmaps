@@ -10,6 +10,7 @@ import torch
 from torch.utils.data import DataLoader, random_split
 from torch import nn, optim
 from tqdm import tqdm
+import csv
 
 from src.autoencoder_data import AutoencoderDataset
 from src.autoencoder import LandmarkAutoencoder
@@ -22,8 +23,9 @@ def parse_args() -> argparse.Namespace:
     p.add_argument("--batch_size", type=int, default=128)
     p.add_argument("--lr", type=float, default=1e-3)
     p.add_argument("--hidden", type=int, default=256)
-    p.add_argument("--device", type=str, default=None, help="cpu|cuda|mps")
+    p.add_argument("--device", type=str, default="auto", choices=["auto", "cpu", "cuda", "mps"], help="Select device")
     p.add_argument("--save_path", type=str, default="autoencoder.pt")
+    p.add_argument("--loss_log", type=str, default="autoencoder_losses.csv", help="CSV to log train/val loss per epoch")
     return p.parse_args()
 
 
@@ -51,9 +53,15 @@ def evaluate(model, loader, device) -> float:
 
 def main() -> None:
     args = parse_args()
-    device = torch.device(args.device) if args.device else torch.device(
-        "cuda" if torch.cuda.is_available() else ("mps" if torch.backends.mps.is_available() else "cpu")
-    )
+    if args.device == "auto":
+        if torch.cuda.is_available():
+            device = torch.device("cuda")
+        elif torch.backends.mps.is_available():
+            device = torch.device("mps")
+        else:
+            device = torch.device("cpu")
+    else:
+        device = torch.device(args.device)
     dataset = AutoencoderDataset(args.chunk_dir)
     train_loader, val_loader = build_loaders(dataset, args.batch_size)
     model = LandmarkAutoencoder(landmark_dim=128, pose_dim=3, hidden=args.hidden).to(device)
@@ -61,6 +69,7 @@ def main() -> None:
     crit = nn.MSELoss()
 
     best_val = float("inf")
+    losses = []
     for epoch in range(args.epochs):
         model.train()
         total = 0.0
@@ -76,10 +85,18 @@ def main() -> None:
         train_loss = total / max(1, len(train_loader.dataset))
         val_loss = evaluate(model, val_loader, device)
         print(f"Epoch {epoch+1}: train_loss={train_loss:.4f} val_loss={val_loss:.4f}")
+        losses.append({"epoch": epoch + 1, "train_loss": train_loss, "val_loss": val_loss})
         if val_loss < best_val:
             best_val = val_loss
             torch.save({"model": model.state_dict()}, args.save_path)
             print(f"Saved best model to {args.save_path}")
+    # save loss log
+    if args.loss_log:
+        with open(args.loss_log, "w", newline="", encoding="utf-8") as f:
+            writer = csv.DictWriter(f, fieldnames=["epoch", "train_loss", "val_loss"])
+            writer.writeheader()
+            writer.writerows(losses)
+        print(f"Wrote loss log to {args.loss_log}")
 
 
 if __name__ == "__main__":
