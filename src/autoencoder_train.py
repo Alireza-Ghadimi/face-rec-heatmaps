@@ -41,6 +41,7 @@ def build_loaders(dataset: AutoencoderDataset, batch_size: int) -> Tuple[DataLoa
 def evaluate(model, loader, device) -> float:
     model.eval()
     total_loss = 0.0
+    steps = 0
     crit = nn.MSELoss()
     with torch.no_grad():
         for x, y in loader:
@@ -48,7 +49,8 @@ def evaluate(model, loader, device) -> float:
             y = y.to(device)
             out = model(x)
             total_loss += crit(out, y).item() * x.size(0)
-    return total_loss / max(1, len(loader.dataset))
+            steps += 1
+    return total_loss / max(1, steps)
 
 
 def main() -> None:
@@ -73,6 +75,7 @@ def main() -> None:
     for epoch in range(args.epochs):
         model.train()
         total = 0.0
+        steps = 0
         for x, y in tqdm(train_loader, desc=f"Epoch {epoch+1}/{args.epochs}"):
             x = x.to(device)
             y = y.to(device)
@@ -82,7 +85,8 @@ def main() -> None:
             loss.backward()
             opt.step()
             total += loss.item() * x.size(0)
-        train_loss = total / max(1, len(train_loader.dataset))
+            steps += 1
+        train_loss = total / max(1, steps)
         val_loss = evaluate(model, val_loader, device)
         print(f"Epoch {epoch+1}: train_loss={train_loss:.4f} val_loss={val_loss:.4f}")
         losses.append({"epoch": epoch + 1, "train_loss": train_loss, "val_loss": val_loss})

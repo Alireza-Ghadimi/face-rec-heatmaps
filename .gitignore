@@ -9,3 +9,4 @@ shape_predictor_68_face_landmarks.dat
 data*
 slurm*.out
 *.cpython-311.pyc
+*.csv

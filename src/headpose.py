@@ -112,3 +112,55 @@ def estimate_head_pose(
         yaw = np.arctan2(-rot_mat[2, 0], sy)
         roll = 0
     return np.degrees(yaw), np.degrees(pitch), np.degrees(roll)
+
+
+def frontalize_landmarks(
+    landmarks: np.ndarray,
+    yaw_deg: float,
+    pitch_deg: float,
+    roll_deg: float,
+    origin_idx: int | None = None,
+    origin_point: np.ndarray | None = None,
+) -> np.ndarray:
+    """
+    Apply inverse head rotation to approximate frontalized 2D landmarks.
+
+    Assumptions: z=0 for all points. If origin_idx is provided and valid, use that
+    landmark as the pivot (nose tip recommended). Otherwise, use origin_point if
+    provided; else fall back to the centroid of all points.
+    """
+    pts = np.asarray(landmarks, dtype=np.float32)
+    if pts.ndim == 1 and pts.size % 2 == 0:
+        pts = pts.reshape(-1, 2)
+    if pts.ndim != 2 or pts.shape[1] != 2 or pts.size == 0:
+        return pts
+    if not np.isfinite([yaw_deg, pitch_deg, roll_deg]).all():
+        return pts
+
+    if origin_point is not None:
+        origin = np.asarray(origin_point, dtype=np.float32)
+    elif origin_idx is not None and 0 <= origin_idx < len(pts):
+        origin = pts[origin_idx].copy()
+    else:
+        origin = np.nanmean(pts, axis=0)
+    if not np.isfinite(origin).all():
+        origin = np.zeros(2, dtype=np.float32)
+
+    pts3d = np.concatenate([pts, np.zeros((len(pts), 1), dtype=np.float32)], axis=1)
+    pts3d = pts3d - np.concatenate([origin, [0.0]]).reshape(1, 3)
+
+    yaw = np.radians(yaw_deg)
+    pitch = np.radians(pitch_deg)
+    roll = np.radians(roll_deg)
+
+    Ry = np.array([[np.cos(yaw), 0, np.sin(yaw)], [0, 1, 0], [-np.sin(yaw), 0, np.cos(yaw)]], dtype=np.float32)
+    Rx = np.array(
+        [[1, 0, 0], [0, np.cos(pitch), -np.sin(pitch)], [0, np.sin(pitch), np.cos(pitch)]], dtype=np.float32
+    )
+    Rz = np.array(
+        [[np.cos(roll), -np.sin(roll), 0], [np.sin(roll), np.cos(roll), 0], [0, 0, 1]], dtype=np.float32
+    )
+    R = Rz @ Ry @ Rx  # roll * yaw * pitch
+    pts_frontal = (R.T @ pts3d.T).T
+    pts_frontal = pts_frontal[:, :2] + origin
+    return pts_frontal.astype(np.float32)
