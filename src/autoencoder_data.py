@@ -5,7 +5,7 @@ Loads chunked NPY files produced by scripts/build_vggface2.py. Each row layout:
 idx, class_id, height, width, raw_landmarks(64*2), norm_landmarks(64*2), yaw, pitch, roll.
 
 We select one canonical sample per class (minimum |yaw|+|pitch|+|roll|) as the target.
-Input features = normalized landmarks concat yaw/pitch/roll. Target = canonical normalized landmarks.
+Input features = raw landmarks concat yaw/pitch/roll. Target = canonical raw landmarks.
 """
 
 from __future__ import annotations
@@ -25,37 +25,44 @@ try:  # optional acceleration
 except Exception:  # pragma: no cover
     SparkSession = None
 
-FEATURE_COUNT = 64 * 2  # normalized landmarks count
-
 
 def _load_chunk(path: str) -> np.ndarray:
     return np.load(path, allow_pickle=True)
 
 
-def _extract_fields(row: Sequence) -> Tuple[str, np.ndarray, float, float, float]:
+def _infer_feature_count(row: Sequence) -> int:
+    # row length = 4 + raw_len + norm_len + 3, with raw_len == norm_len
+    total = len(row)
+    raw_len = (total - 7) // 2  # since raw_len + norm_len = total - 7
+    return raw_len
+
+
+def _extract_fields(row: Sequence, feature_count: int) -> Tuple[str, np.ndarray, float, float, float]:
     class_id = str(row[1])
-    norm_start = 4 + FEATURE_COUNT  # skip raw coords
-    norm_end = norm_start + FEATURE_COUNT
-    norm = np.asarray(row[norm_start:norm_end], dtype=np.float32)
+    raw_start = 4
+    raw_end = raw_start + feature_count
+    raw = np.asarray(row[raw_start:raw_end], dtype=np.float32)
     yaw, pitch, roll = map(float, row[-3:])
-    return class_id, norm, yaw, pitch, roll
+    return class_id, raw, yaw, pitch, roll
 
 
-def _canonical_map_numpy(rows: np.ndarray) -> Dict[str, np.ndarray]:
+def _canonical_map_numpy(rows: np.ndarray, feature_count: int) -> Dict[str, np.ndarray]:
     best: Dict[str, Tuple[float, np.ndarray]] = {}
     for r in rows:
-        cid, norm, yaw, pitch, roll = _extract_fields(r)
+        cid, raw, yaw, pitch, roll = _extract_fields(r, feature_count)
         score = abs(yaw) + abs(pitch) + abs(roll)
         if cid not in best or score < best[cid][0]:
-            best[cid] = (score, norm)
+            best[cid] = (score, raw)
     return {k: v[1] for k, v in best.items()}
 
 
 def build_canonical_map(chunk_paths: List[str]) -> Dict[str, np.ndarray]:
     # If pyspark unavailable or initialization fails, fallback to numpy path.
+    first_chunk = _load_chunk(chunk_paths[0])
+    feature_count = _infer_feature_count(first_chunk[0])
     if SparkSession is None:
         all_rows = [row for p in chunk_paths for row in _load_chunk(p)]
-        return _canonical_map_numpy(np.asarray(all_rows, dtype=object))
+        return _canonical_map_numpy(np.asarray(all_rows, dtype=object), feature_count)
     try:
         spark = SparkSession.builder.master("local[*]").appName("canon_map").getOrCreate()
         dfs = []
@@ -63,10 +70,10 @@ def build_canonical_map(chunk_paths: List[str]) -> Dict[str, np.ndarray]:
             arr = _load_chunk(p)
             data = []
             for r in arr:
-                cid, norm, yaw, pitch, roll = _extract_fields(r)
+                cid, raw, yaw, pitch, roll = _extract_fields(r, feature_count)
                 score = abs(yaw) + abs(pitch) + abs(roll)
-                data.append((cid, float(score), norm.tolist()))
-            df = spark.createDataFrame(data, ["class_id", "score", "norm"])
+                data.append((cid, float(score), raw.tolist()))
+            df = spark.createDataFrame(data, ["class_id", "score", "raw"])
             dfs.append(df)
         full = dfs[0]
         for df in dfs[1:]:
@@ -75,14 +82,14 @@ def build_canonical_map(chunk_paths: List[str]) -> Dict[str, np.ndarray]:
             full.groupBy("class_id")
             .agg(F.min("score").alias("best_score"))
             .join(full, on=["class_id", F.col("score") == F.col("best_score")], how="inner")
-            .select("class_id", "norm")
+            .select("class_id", "raw")
         )
-        canon = {row["class_id"]: np.asarray(row["norm"], dtype=np.float32) for row in w.collect()}
+        canon = {row["class_id"]: np.asarray(row["raw"], dtype=np.float32) for row in w.collect()}
         spark.stop()
         return canon
     except Exception:
         all_rows = [row for p in chunk_paths for row in _load_chunk(p)]
-        return _canonical_map_numpy(np.asarray(all_rows, dtype=object))
+        return _canonical_map_numpy(np.asarray(all_rows, dtype=object), feature_count)
 
 
 @dataclass
@@ -98,14 +105,16 @@ class AutoencoderDataset(Dataset):
         chunk_paths = sorted(glob.glob(os.path.join(chunk_dir, "chunk_*.npy")))
         if not chunk_paths:
             raise FileNotFoundError(f"No chunks found in {chunk_dir}")
+        first_chunk = _load_chunk(chunk_paths[0])
+        self.feature_count = _infer_feature_count(first_chunk[0])
         self.canonical = build_canonical_map(chunk_paths)
         samples: List[AutoencoderSample] = []
         for p in chunk_paths:
             for r in _load_chunk(p):
-                cid, norm, yaw, pitch, roll = _extract_fields(r)
+                cid, raw, yaw, pitch, roll = _extract_fields(r, self.feature_count)
                 if cid not in self.canonical:
                     continue
-                feats = np.concatenate([norm, np.array([yaw, pitch, roll], dtype=np.float32)], axis=0)
+                feats = np.concatenate([raw, np.array([yaw, pitch, roll], dtype=np.float32)], axis=0)
                 target = self.canonical[cid]
                 if not np.isfinite(feats).all() or not np.isfinite(target).all():
                     continue

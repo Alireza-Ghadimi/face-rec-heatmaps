@@ -52,12 +52,7 @@ LANDMARKS_MP: Sequence[Tuple[str, int]] = [
     ("right_eyebrow_outer", 296),
 ]
 MP_LANDMARK_COUNT = 468
-IMPORTANT_LANDMARKS = [
-    10, 338, 297, 332, 284, 251, 389, 356, 454, 323, 361, 288, 397, 365, 379, 378,
-    400, 377, 152, 148, 176, 149, 150, 136, 172, 58, 132, 93, 234, 127, 162, 21,
-    54, 103, 67, 109, 70, 63, 105, 66, 107, 336, 296, 334, 293, 300, 33, 160,
-    158, 133, 153, 144, 163, 7, 362, 385, 387, 263, 373, 380, 390, 249, 78, 308,
-]
+IMPORTANT_LANDMARKS = list(range(MP_LANDMARK_COUNT))  # export all landmarks
 
 
 def save_image(img, path: Path) -> None:
