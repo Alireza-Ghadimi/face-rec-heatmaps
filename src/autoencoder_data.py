@@ -106,7 +106,10 @@ class AutoencoderDataset(Dataset):
                 if cid not in self.canonical:
                     continue
                 feats = np.concatenate([norm, np.array([yaw, pitch, roll], dtype=np.float32)], axis=0)
-                samples.append(AutoencoderSample(feats, self.canonical[cid]))
+                target = self.canonical[cid]
+                if not np.isfinite(feats).all() or not np.isfinite(target).all():
+                    continue
+                samples.append(AutoencoderSample(feats, target))
         self.samples = samples
 
     def __len__(self) -> int:
