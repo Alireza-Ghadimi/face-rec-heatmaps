@@ -19,4 +19,5 @@ python -m src.autoencoder_train \
   --epochs 1000 \
   --batch_size 128 \
   --lr 1e-3 \
-  --save_path autoencoder.pt
+  --save_path autoencoder.pt \
+  --device cuda
