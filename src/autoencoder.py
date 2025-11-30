@@ -23,6 +23,14 @@ class LandmarkAutoencoder(nn.Module):
             nn.Linear(hidden, landmark_dim),
         )
 
+        self.apply(self._init_weights)
+
+    def _init_weights(self, m: nn.Module) -> None:
+        if isinstance(m, nn.Linear):
+            nn.init.xavier_uniform_(m.weight)
+            if m.bias is not None:
+                nn.init.zeros_(m.bias)
+
     def forward(self, x: torch.Tensor) -> torch.Tensor:
         z = self.encoder(x)
         out = self.decoder(z)

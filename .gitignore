@@ -7,5 +7,5 @@ shape_predictor_68_face_landmarks.dat
 *.jpg
 *.pyc
 data*
-src/__pycache__/*
 slurm*.out
+*.cpython-311.pyc

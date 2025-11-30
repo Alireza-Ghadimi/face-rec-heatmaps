@@ -11,8 +11,8 @@ from torch.utils.data import DataLoader, random_split
 from torch import nn, optim
 from tqdm import tqdm
 
-from autoencoder_data import AutoencoderDataset
-from autoencoder import LandmarkAutoencoder
+from src.autoencoder_data import AutoencoderDataset
+from src.autoencoder import LandmarkAutoencoder
 
 
 def parse_args() -> argparse.Namespace:

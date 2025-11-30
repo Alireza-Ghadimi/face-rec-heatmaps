@@ -2,9 +2,15 @@ import os
 import tempfile
 import numpy as np
 import torch
+import sys
+from pathlib import Path
 
-from autoencoder_data import AutoencoderDataset
-from autoencoder import LandmarkAutoencoder
+ROOT = Path(__file__).resolve().parents[1]
+if str(ROOT) not in sys.path:
+    sys.path.insert(0, str(ROOT))
+
+from src.autoencoder_data import AutoencoderDataset
+from src.autoencoder import LandmarkAutoencoder
 
 
 def _make_fake_chunk(path: str, classes=2, samples_per_class=3):
