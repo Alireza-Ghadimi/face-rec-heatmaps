@@ -34,4 +34,4 @@ python scripts/build_vggface2.py \
   --chunk_dir data_vggface2/chunks \
   --csv_path data_vggface2_first_row.csv \
   --save_images False \
-  --streaming True
+  --streaming 

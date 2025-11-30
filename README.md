@@ -63,6 +63,20 @@ Then train:
 python -m src.train --data_root data_vggface2 --use_heatmaps true --add_mask_channel true --extractor mediapipe --device cuda
 ```
 
+## Landmark Autoencoder (pose → canonical)
+Chunks from `build_vggface2.py` can feed a small MLP that maps posed normalized landmarks + head pose to canonical (straight) landmarks:
+```bash
+# Build chunked landmarks without saving images
+python scripts/build_vggface2.py \
+  --dataset logasja/vggface2 --split train --out_dir data_vggface2 \
+  --chunk_size 1000 --chunk_dir data_vggface2/chunks \
+  --csv_path data_vggface2_first_row.csv --save_images false --streaming
+
+# Train autoencoder on chunks
+python -m autoencoder_train --chunk_dir data_vggface2/chunks --device cuda --epochs 10
+```
+Model: `LandmarkAutoencoder` (input: normalized landmarks + yaw/pitch/roll; target: canonical landmarks per identity with minimal absolute pose). Data loading/aggregation in `autoencoder_data.py` (uses pyspark if available, else numpy).
+
 ## Tests
 Run a quick smoke test:
 ```bash
