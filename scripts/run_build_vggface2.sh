@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=build-vggface2
 #SBATCH --account=aip-jelder
-#SBATCH --time=02:00:00
+#SBATCH --time=08:00:00
 #SBATCH --mem=8G
 #SBATCH --cpus-per-task=4
 
@@ -30,7 +30,7 @@ python scripts/build_vggface2.py \
   --dataset logasja/vggface2 \
   --split train \
   --out_dir data_vggface2 \
-  --chunk_size 1000 \
+  --chunk_size 10000 \
   --chunk_dir data_vggface2/chunks \
   --csv_path data_vggface2_first_row.csv \
   --save_images False \
