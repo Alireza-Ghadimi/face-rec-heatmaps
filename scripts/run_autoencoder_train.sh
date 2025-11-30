@@ -1,7 +1,7 @@
 #!/bin/bash
 #SBATCH --job-name=ae-train
 #SBATCH --account=aip-jelder
-#SBATCH --time=04:00:00
+#SBATCH --time=08:00:00
 #SBATCH --gres=gpu:1
 #SBATCH --mem=16G
 #SBATCH --cpus-per-task=4
@@ -19,5 +19,4 @@ python -m src.autoencoder_train \
   --epochs 1000 \
   --batch_size 128 \
   --lr 1e-3 \
-  --save_path autoencoder.pt \
-  --device cuda
+  --save_path autoencoder.pt
