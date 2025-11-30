@@ -13,6 +13,6 @@ datasets>=2.16.0
 huggingface-hub>=0.20.0
 pyspark>=3.5.0
 cmake>=4.2.0
-dlib>=20.0.0
+# dlib>=20.0.0
 pytest>=9.0.1
 ipykernel>=7.1.0
